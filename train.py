@@ -7,12 +7,12 @@ import pickle
 from scipy.misc import imread
 from facenet import Facenet
 from sklearn.svm import SVC
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
 
 
 def load_data(path):
-    X, y = [], []
-    n_people = len(os.listdir(path))
-    names = np.empty(n_people, dtype=str)
+    X, y, names = [], [], []
     idx = 0
     for person in os.listdir(path):
         directory = os.path.join(path, person)
@@ -21,10 +21,11 @@ def load_data(path):
             img = imread(os.path.join(directory, imgPath))
             X.append(img)
             y.append(idx)
-        names[idx] = person
+        names.append(person.replace('_', ' '))
         idx += 1
     X = np.array(X)
     y = np.array(y)
+    names = np.array(names)
     return {'X': X, 'y': y, 'names': names}
 
 
@@ -47,6 +48,15 @@ def main(args):
         pickle.dump(cls, f)
 
     np.save('./data/names.npy', data['names'])
+
+    x_tsne = TSNE().fit_transform(X_emb)
+    n_people = np.unique(data['y']).shape[0]
+    colours = iter(plt.cm.rainbow(np.linspace(0, 1, n_people)))
+    for i in range(n_people):
+        idx = data['y'] == i
+        plt.scatter(x_tsne[idx, 0], x_tsne[idx, 1], c=next(colours), label=data['names'][i])
+    plt.legend()
+    plt.show()
 
 
 if __name__ == '__main__':
