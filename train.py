@@ -40,7 +40,7 @@ def main(args):
         X_emb = sess.run(facenet.end_points['embeddings'],
                          feed_dict={facenet.end_points['inputs']: data['X']})
 
-    cls = SVC()
+    cls = SVC(probability=True)
     print('Training classifier...')
     cls.fit(X_emb, data['y'])
 
