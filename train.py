@@ -31,6 +31,7 @@ def load_data(path):
 
 def main(args):
     data = load_data(args.training_images)
+    print('Loading FaceNet...')
     facenet = Facenet()
 
     with tf.Session() as sess:
@@ -47,15 +48,19 @@ def main(args):
     with open('./models/classifier.pkl', 'wb') as f:
         pickle.dump(cls, f)
 
-    np.save('./data/names.npy', data['names'])
+    np.save('./sample_data/names.npy', data['names'])
 
     x_tsne = TSNE().fit_transform(X_emb)
     n_people = np.unique(data['y']).shape[0]
     colours = iter(plt.cm.rainbow(np.linspace(0, 1, n_people)))
+    fig = plt.figure()
+    ax = plt.subplot(111)
     for i in range(n_people):
         idx = data['y'] == i
-        plt.scatter(x_tsne[idx, 0], x_tsne[idx, 1], c=next(colours), label=data['names'][i])
-    plt.legend()
+        ax.scatter(x_tsne[idx, 0], x_tsne[idx, 1], c=next(colours), label=data['names'][i])
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.show()
 
 
@@ -63,6 +68,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--training_images', type=str,
                         help='Directory with aligned face thumbnails',
-                        default='./data/aligned')
+                        default='./sample_data/aligned')
     args = parser.parse_args(sys.argv[1:])
     main(args)
