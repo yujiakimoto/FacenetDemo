@@ -5,6 +5,7 @@ import tensorflow as tf
 import mtcnn
 import argparse
 import sys
+from scipy import misc
 from facenet import Facenet
 
 
@@ -65,12 +66,13 @@ def predict(sess, net, classifier, face, names):
     idx = np.argmax(pred)
     prob = pred[0, idx]
     name = names[idx]
+    print(name, prob)
     return prob, name
 
 
 def draw_corners(frame, box):
-    length = 20
-    width = 2
+    length = 30
+    width = 5
     colour = (0, 0, 255)
     p1 = np.array([box[0], box[1]])
     p2 = np.array([box[2], box[1]])
@@ -89,8 +91,11 @@ def draw_corners(frame, box):
     cv2.line(frame, tuple(p4), tuple(p4 + left), colour, width)
     cv2.line(frame, tuple(p4), tuple(p4 + up), colour, width)
 
+
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
+    parser.add_argument('--data', type=str,
+                        help='Path to image data', default='./sample_data/')
     parser.add_argument('--height', type=int,
                         help='Display window height in pixels', default=720)
     parser.add_argument('--width', type=int,
@@ -110,14 +115,20 @@ if __name__ == '__main__':
     print('Loading SVM...')
     with open('./models/classifier.pkl', 'rb') as file:
         classifier = pickle.load(file)
-    names = np.load('./data/names.npy')
+    names = np.load('./sample_data/names.npy')
     print('Loading Facenet...')
     net = Facenet()
+
     cv2.namedWindow('camera')
-    cv2.namedWindow('info')
+    cv2.namedWindow('photo')
+    cv2.namedWindow('profile_photo')
+    cv2.namedWindow('profile_text')
+
     vc = cv2.VideoCapture(0)
     vc.set(3, args.width)
     vc.set(4, args.height)
+    size = (300, 300)
+    threshold = 0.1
 
     if vc.isOpened():
         ret_val, frame = vc.read()
@@ -136,18 +147,33 @@ if __name__ == '__main__':
             key = cv2.waitKey(20)
             # exit on ESC, show info on ENTER
             if key == 13:
-                faces, boxes = detect_faces(frame, args)
-                for box in boxes:
-                    draw_corners(frame, box)
-                for face in faces:
-                    prob, name = predict(sess, net, classifier, face, names)
-                    if prob < 0.75:
-                        cv2.putText(frame, 'Unkown',
-                                    (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-                    else:
-                        cv2.putText(frame, 'P: {} C: {}'.format(name, round(100 * prob, 1)),
-                                    (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-                cv2.imshow('info', frame)
+                try:
+                    faces, boxes = detect_faces(frame, args)
+                except TypeError:
+                    faces, boxes = None, None
+                else:
+                    for box in boxes:
+                        draw_corners(frame, box)
+                    frame = cv2.resize(frame, size)
+                    for face in faces:
+                        prob, name = predict(sess, net, classifier, face, names)
+                        if prob < threshold:
+                            name = 'Unknown'
+                        profile_pic = misc.imread(args.data + 'templates/' + name.replace(' ', '_') + '.jpg')
+                        profile_pic = profile_pic[:, :, ::-1]
+                        profile_pic = cv2.resize(profile_pic, size)
+                        blank = np.full(size + (3,), 255.0)
+                        if prob < threshold:
+                            cv2.putText(blank, 'Unkown Person',
+                                        (50, 50), cv2.FONT_HERSHEY_DUPLEX, 0.75, (0, 0, 0), 1)
+                        else:
+                            cv2.putText(blank, 'Name: {}'.format(name),
+                                        (50, 50), cv2.FONT_HERSHEY_DUPLEX, 0.75, (0, 0, 0), 1)
+                            cv2.putText(blank, 'Probability: {}'.format(round(100 * prob, 1)),
+                                        (50, 100), cv2.FONT_HERSHEY_DUPLEX, 0.75, (0, 0, 0), 1)
+                    cv2.imshow('photo', frame)
+                    cv2.imshow('profile_photo', profile_pic)
+                    cv2.imshow('profile_text', blank)
             elif key == 27:
                 break
 
