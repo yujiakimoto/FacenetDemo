@@ -6,7 +6,6 @@ import argparse
 import sys
 import os
 import mtcnn
-import cv2
 from scipy import misc
 
 
