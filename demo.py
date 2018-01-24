@@ -59,15 +59,17 @@ def detect_faces(img, args):
 
 
 def predict(sess, net, classifier, face, names):
-    img = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+    # img = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
     embedding = sess.run(net.end_points['embeddings'],
-                         feed_dict={net.end_points['inputs']: np.array([img])})
+                         feed_dict={net.end_points['inputs']: np.array([face])})
     pred = classifier.predict_proba(embedding)
     idx = np.argmax(pred)
     prob = pred[0, idx]
     name = names[idx]
-    print(name, prob)
-    return prob, name
+    dist = classifier.kneighbors(embedding)[0][0, 0]
+    print(prob, name)
+    print(pred)
+    return prob, name, dist
 
 
 def draw_corners(frame, box):
@@ -97,7 +99,7 @@ def parse_arguments(argv):
     parser.add_argument('--data', type=str,
                         help='Path to image data', default='./sample_data/')
     parser.add_argument('--height', type=int,
-                        help='Display window height in pixels', default=720)
+                        help='Display window height in pixels', default=960)
     parser.add_argument('--width', type=int,
                         help='Display window width in pixels', default=960)
     parser.add_argument('--image_size', type=int,
@@ -128,7 +130,7 @@ if __name__ == '__main__':
     vc.set(3, args.width)
     vc.set(4, args.height)
     size = (300, 300)
-    threshold = 0.1
+    threshold = 0.5
 
     if vc.isOpened():
         ret_val, frame = vc.read()
@@ -156,21 +158,17 @@ if __name__ == '__main__':
                         draw_corners(frame, box)
                     frame = cv2.resize(frame, size)
                     for face in faces:
-                        prob, name = predict(sess, net, classifier, face, names)
-                        if prob < threshold:
+                        prob, name, dist = predict(sess, net, classifier, face, names)
+                        if dist > threshold:
                             name = 'Unknown'
                         profile_pic = misc.imread(args.data + 'templates/' + name.replace(' ', '_') + '.jpg')
                         profile_pic = profile_pic[:, :, ::-1]
                         profile_pic = cv2.resize(profile_pic, size)
                         blank = np.full(size + (3,), 255.0)
-                        if prob < threshold:
-                            cv2.putText(blank, 'Unkown Person',
-                                        (50, 50), cv2.FONT_HERSHEY_DUPLEX, 0.75, (0, 0, 0), 1)
-                        else:
-                            cv2.putText(blank, 'Name: {}'.format(name),
-                                        (50, 50), cv2.FONT_HERSHEY_DUPLEX, 0.75, (0, 0, 0), 1)
-                            cv2.putText(blank, 'Probability: {}'.format(round(100 * prob, 1)),
-                                        (50, 100), cv2.FONT_HERSHEY_DUPLEX, 0.75, (0, 0, 0), 1)
+                        cv2.putText(blank, 'Name: {}'.format(name),
+                                    (20, 50), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 0), 1)
+                        cv2.putText(blank, 'Probability: {}'.format(round(100 * prob, 1)),
+                                    (20, 100), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 0), 1)
                     cv2.imshow('photo', frame)
                     cv2.imshow('profile_photo', profile_pic)
                     cv2.imshow('profile_text', blank)
