@@ -7,6 +7,7 @@ import pickle
 from scipy.misc import imread
 from facenet import Facenet
 from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 
@@ -40,8 +41,10 @@ def main(args):
         print('Generating embeddings...')
         X_emb = sess.run(facenet.end_points['embeddings'],
                          feed_dict={facenet.end_points['inputs']: data['X']})
+        # np.save('embeddings.npy', X_emb)
 
-    cls = SVC(probability=True)
+    # cls = SVC(probability=True)
+    cls = KNeighborsClassifier(n_neighbors=11)
     print('Training classifier...')
     cls.fit(X_emb, data['y'])
 
